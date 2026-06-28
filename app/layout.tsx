@@ -15,7 +15,7 @@ const nunito = Nunito({
 });
 
 export const metadata: Metadata = {
-  title: "Play with Maple 🐾",
+  title: "Maple & Chill",
   description: "Meet Maple the toy poodle — play games, chase treats, and follow her adventures!",
 };
 
