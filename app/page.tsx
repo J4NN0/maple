@@ -10,22 +10,6 @@ const games = [
     difficulty: "Medium",
   },
   {
-    slug: "treat-catcher",
-    emoji: "🦴",
-    title: "Treat Catcher",
-    description:
-      "Catch falling treats — but dodge the broccoli and bath bubbles. Combos multiply your score!",
-    difficulty: "Easy",
-  },
-  {
-    slug: "poodle-hop",
-    emoji: "🌤️",
-    title: "Poodle Hop",
-    description:
-      "Bounce Maple higher and higher on platforms. Collect treats and dodge flying cats.",
-    difficulty: "Hard",
-  },
-  {
     slug: "find-the-ball",
     emoji: "🎾",
     title: "Find the Ball",
@@ -101,30 +85,44 @@ export default function Home() {
           Choose your game
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          {games.map((game) => (
-            <div
-              key={game.slug}
-              className="bg-maple-tan rounded-3xl p-6 flex flex-col gap-4 hover:shadow-lg hover:-translate-y-1 transition-all"
-            >
-              <div className="text-5xl select-none">{game.emoji}</div>
-              <div className="flex items-center gap-3">
-                <h3 className="font-bold text-xl text-maple-dark">{game.title}</h3>
-                <span
-                  className={`text-xs font-semibold px-2 py-0.5 rounded-full ${difficultyColor[game.difficulty]}`}
-                >
-                  {game.difficulty}
-                </span>
+          {games.map((game) => {
+            const isLive = game.slug === "zoomies-run";
+            const card = (
+              <div
+                key={game.slug}
+                className={`bg-maple-tan rounded-3xl p-6 flex flex-col gap-4 transition-all ${isLive ? "hover:shadow-lg hover:-translate-y-1 cursor-pointer" : ""}`}
+              >
+                <div className="text-5xl select-none">{game.emoji}</div>
+                <div className="flex items-center gap-3">
+                  <h3 className="font-bold text-xl text-maple-dark">{game.title}</h3>
+                  <span
+                    className={`text-xs font-semibold px-2 py-0.5 rounded-full ${difficultyColor[game.difficulty]}`}
+                  >
+                    {game.difficulty}
+                  </span>
+                </div>
+                <p className="text-maple-brown/80 text-sm leading-relaxed">
+                  {game.description}
+                </p>
+                <div className="mt-auto">
+                  {isLive ? (
+                    <span className="inline-block bg-maple-brown text-maple-cream text-sm font-bold px-5 py-2 rounded-full">
+                      Play now →
+                    </span>
+                  ) : (
+                    <span className="inline-block bg-maple-brown/30 text-maple-brown text-sm font-bold px-5 py-2 rounded-full cursor-not-allowed">
+                      Coming soon…
+                    </span>
+                  )}
+                </div>
               </div>
-              <p className="text-maple-brown/80 text-sm leading-relaxed">
-                {game.description}
-              </p>
-              <div className="mt-auto">
-                <span className="inline-block bg-maple-brown/30 text-maple-brown text-sm font-bold px-5 py-2 rounded-full cursor-not-allowed">
-                  Coming soon…
-                </span>
-              </div>
-            </div>
-          ))}
+            );
+            return isLive ? (
+              <Link key={game.slug} href={`/games/${game.slug}`}>{card}</Link>
+            ) : (
+              <div key={game.slug}>{card}</div>
+            );
+          })}
         </div>
       </section>
 
