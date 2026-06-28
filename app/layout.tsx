@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Dancing_Script, Nunito } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const dancingScript = Dancing_Script({
@@ -26,7 +27,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${dancingScript.variable} ${nunito.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <Analytics />
+      </body>
     </html>
   );
 }
