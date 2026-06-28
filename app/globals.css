@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+:root {
+  --maple-cream:   #F5EDE0;
+  --maple-tan:     #E8D5BC;
+  --maple-caramel: #C4922A;
+  --maple-brown:   #7B4A1E;
+  --maple-dark:    #3D2008;
+}
+
+@theme inline {
+  --color-background:    var(--maple-cream);
+  --color-foreground:    var(--maple-dark);
+  --color-maple-cream:   var(--maple-cream);
+  --color-maple-tan:     var(--maple-tan);
+  --color-maple-caramel: var(--maple-caramel);
+  --color-maple-brown:   var(--maple-brown);
+  --color-maple-dark:    var(--maple-dark);
+  --font-display: var(--font-dancing);
+  --font-sans:    var(--font-nunito);
+}
+
+body {
+  background: var(--maple-cream);
+  color: var(--maple-dark);
+  font-family: var(--font-nunito), sans-serif;
+}
