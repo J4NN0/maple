@@ -130,8 +130,9 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="mt-auto border-t border-maple-tan px-6 py-8 flex flex-col items-center gap-2 text-maple-brown/60 text-sm">
-        <span className="font-display text-2xl text-maple-caramel">Maple</span>
-        <p>The fluffiest toy poodle on the internet 🐩</p>
+        <span className="font-display text-2xl text-maple-caramel">Maple & Chill
+        </span>
+        <p>Quietly stealing hearts</p>
         <a
           href="https://www.instagram.com/mapleandchill/"
           target="_blank"
