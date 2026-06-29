@@ -32,9 +32,10 @@ export const metadata: Metadata = {
     locale: "en_US",
     images: [
       {
-        url: "/mapleandgames.png",
-        width: 1086,
-        height: 1448,
+        url: "/og-image.jpg",
+        width: 1200,
+        height: 630,
+        type: "image/jpeg",
         alt: "Maple the toy poodle",
       },
     ],
@@ -43,7 +44,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title,
     description,
-    images: ["/mapleandgames.png"],
+    images: ["/og-image.jpg"],
   },
 };
 
