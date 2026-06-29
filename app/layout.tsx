@@ -15,9 +15,36 @@ const nunito = Nunito({
   weight: ["400", "600", "700", "800"],
 });
 
+const title = "Maple & Chill";
+const description =
+  "Meet Maple the toy poodle — play games, chase treats, and follow her adventures!";
+
 export const metadata: Metadata = {
-  title: "Maple & Chill",
-  description: "Meet Maple the toy poodle — play games, chase treats, and follow her adventures!",
+  metadataBase: new URL("https://mapleandchill.vercel.app"),
+  title,
+  description,
+  openGraph: {
+    title,
+    description,
+    url: "/",
+    siteName: title,
+    type: "website",
+    locale: "en_US",
+    images: [
+      {
+        url: "/mapleandgames.png",
+        width: 1086,
+        height: 1448,
+        alt: "Maple the toy poodle",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title,
+    description,
+    images: ["/mapleandgames.png"],
+  },
 };
 
 export default function RootLayout({
