@@ -18,12 +18,12 @@ export default function ZoomiesRunPage() {
         </span>
       </nav>
 
-      <div className="flex flex-col items-center px-4 py-8 gap-4 max-w-4xl mx-auto w-full">
-        <div className="w-full bg-maple-tan rounded-3xl p-3 shadow-md">
+      <div className="flex flex-col items-center sm:px-4 py-8 gap-4 max-w-4xl mx-auto w-full">
+        <div className="w-full bg-maple-tan p-0 sm:rounded-3xl sm:p-3 sm:shadow-md">
           <ZoomiesGame />
         </div>
-        <p className="text-maple-brown/60 text-sm text-center">
-          Space / ↑ to jump &nbsp;•&nbsp; tap on mobile
+        <p className="text-maple-brown/60 text-sm text-center px-4">
+          Space / ↑ to jump &nbsp;•&nbsp; tap anywhere on mobile
         </p>
       </div>
     </main>

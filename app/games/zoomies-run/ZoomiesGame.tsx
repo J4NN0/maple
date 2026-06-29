@@ -12,6 +12,15 @@ const JUMP_V = -14;
 const INIT_SPEED = 4.5;
 const MAX_SPEED = 15;
 
+// Sprite sheet: 3 frames laid out left→right (run-A, run-B, jump), facing right.
+const SPRITE_SRC = "/maple-sprite.png";
+const SPRITE_FRAMES = 3;
+const SPRITE_DRAW_H = 64;   // on-canvas height of the reference frame's bounding box
+const RUN_FRAME_DIST = 55;  // canvas units of travel per run-cycle frame flip (higher = slower legs)
+
+type FrameRect = { sx: number; sy: number; sw: number; sh: number };
+type Sprite = { src: CanvasImageSource | null; frames: FrameRect[]; scale: number; ready: boolean };
+
 type Phase = "idle" | "playing" | "dead";
 type ObsType = "puddle" | "vacuum" | "cat";
 interface Obs { x: number; type: ObsType; w: number; h: number; }
@@ -164,6 +173,37 @@ function drawMaple(ctx: CanvasRenderingContext2D, y: number, frame: number, dead
   ctx.restore();
 }
 
+// ── draw: Maple sprite ────────────────────────────────────────────────
+// Draws one sprite frame anchored by its feet (bbox bottom → ground) and
+// horizontally centered on the hitbox, so frames of differing size/position
+// animate without jitter. The hitbox itself (DOG_X/W/H) is unchanged.
+function drawMapleSprite(
+  ctx: CanvasRenderingContext2D,
+  src: CanvasImageSource,
+  fr: FrameRect,
+  scale: number,
+  y: number,
+  dead: boolean,
+) {
+  const dw = fr.sw * scale;
+  const dh = fr.sh * scale;
+  const centerX = DOG_X + DOG_W / 2;
+  const footY = y + DOG_H;
+  const dx = centerX - dw / 2;
+  const dy = footY - dh;
+
+  ctx.save();
+  ctx.imageSmoothingEnabled = false; // keep pixel art crisp
+  if (dead) {
+    const cy = footY - dh / 2;
+    ctx.translate(centerX, cy);
+    ctx.rotate(0.35);
+    ctx.translate(-centerX, -cy);
+  }
+  ctx.drawImage(src, fr.sx, fr.sy, fr.sw, fr.sh, dx, dy, dw, dh);
+  ctx.restore();
+}
+
 // ── draw: obstacles ───────────────────────────────────────────────────
 function drawObstacle(ctx: CanvasRenderingContext2D, obs: Obs) {
   const bx = obs.x;
@@ -266,6 +306,7 @@ function drawDeadOverlay(ctx: CanvasRenderingContext2D, score: number, best: num
 export default function ZoomiesGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number>(0);
+  const spriteRef = useRef<Sprite>({ src: null, frames: [], scale: 1, ready: false });
 
   const g = useRef({
     phase: "idle" as Phase,
@@ -313,6 +354,57 @@ export default function ZoomiesGame() {
   useEffect(() => {
     const saved = localStorage.getItem("zoomies-hs");
     if (saved) g.current.highScore = parseFloat(saved);
+  }, []);
+
+  // Load the sprite sheet. The generated sheet ships fully opaque with the grey
+  // "transparency" checkerboard baked in, so we chroma-key the neutral grey to
+  // real transparency on an offscreen canvas, then detect each frame's tight
+  // bounding box from the cleaned alpha (the sheet isn't on a clean grid) so the
+  // frames anchor consistently. Falls back to the procedural drawing until ready.
+  useEffect(() => {
+    const img = new Image();
+    img.src = SPRITE_SRC;
+    img.onload = () => {
+      const w = img.naturalWidth, h = img.naturalHeight;
+      const off = document.createElement("canvas");
+      off.width = w; off.height = h;
+      const octx = off.getContext("2d", { willReadFrequently: true });
+      if (!octx) return;
+      octx.drawImage(img, 0, 0);
+
+      // Chroma-key: neutral mid/bright greys (low chroma, not near-black) become
+      // transparent; colored fur and near-black outlines/eyes/nose are kept.
+      const id = octx.getImageData(0, 0, w, h);
+      const data = id.data;
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i], g = data[i + 1], b = data[i + 2];
+        const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+        if (mx - mn <= 16 && mx >= 60) data[i + 3] = 0;
+      }
+      octx.putImageData(id, 0, 0);
+
+      const colW = w / SPRITE_FRAMES;
+      const frames: FrameRect[] = [];
+      for (let c = 0; c < SPRITE_FRAMES; c++) {
+        const x0 = Math.floor(c * colW), x1 = Math.floor((c + 1) * colW);
+        let minX = x1, minY = h, maxX = x0, maxY = 0, found = false;
+        for (let y = 0; y < h; y++) {
+          for (let x = x0; x < x1; x++) {
+            if (data[(y * w + x) * 4 + 3] > 40) {
+              found = true;
+              if (x < minX) minX = x;
+              if (x > maxX) maxX = x;
+              if (y < minY) minY = y;
+              if (y > maxY) maxY = y;
+            }
+          }
+        }
+        frames.push(found
+          ? { sx: minX, sy: minY, sw: maxX - minX + 1, sh: maxY - minY + 1 }
+          : { sx: x0, sy: 0, sw: x1 - x0, sh: h });
+      }
+      spriteRef.current = { src: off, frames, scale: SPRITE_DRAW_H / frames[0].sh, ready: true };
+    };
   }, []);
 
   useEffect(() => {
@@ -384,7 +476,19 @@ export default function ZoomiesGame() {
 
       drawBackground(ctx, s.scrollX);
       for (const o of s.obstacles) drawObstacle(ctx, o);
-      drawMaple(ctx, s.mapleY, s.frame, s.phase === "dead");
+
+      const spr = spriteRef.current;
+      if (spr.ready && spr.src) {
+        const isAir = s.mapleY < GROUND - DOG_H - 2;
+        const frameIdx = isAir
+          ? 2                                                  // jump
+          : s.phase === "idle"
+            ? 1                                                // resting stance
+            : Math.floor(s.scrollX / RUN_FRAME_DIST) % 2;      // run cycle
+        drawMapleSprite(ctx, spr.src, spr.frames[frameIdx], spr.scale, s.mapleY, s.phase === "dead");
+      } else {
+        drawMaple(ctx, s.mapleY, s.frame, s.phase === "dead");
+      }
       drawHUD(ctx, s.score, s.highScore);
       if (s.phase === "idle") drawIdleOverlay(ctx);
       if (s.phase === "dead") drawDeadOverlay(ctx, s.score, s.highScore);
@@ -397,14 +501,20 @@ export default function ZoomiesGame() {
   }, []);
 
   return (
-    <canvas
-      ref={canvasRef}
-      width={W}
-      height={H}
-      onClick={jump}
-      onTouchStart={(e) => { e.preventDefault(); jump(); }}
-      className="w-full rounded-2xl cursor-pointer select-none"
+    // Wrapper is the tap target: full-width and given generous vertical padding
+    // on mobile so a large, "borderless" area triggers the jump (dino-style),
+    // while the canvas keeps its 8:3 aspect. Desktop hugs the canvas (sm:py-0).
+    <div
+      onPointerDown={(e) => { e.preventDefault(); jump(); }}
+      className="w-full flex items-center justify-center cursor-pointer select-none py-12 sm:py-0"
       style={{ touchAction: "none" }}
-    />
+    >
+      <canvas
+        ref={canvasRef}
+        width={W}
+        height={H}
+        className="w-full block rounded-none sm:rounded-2xl"
+      />
+    </div>
   );
 }
