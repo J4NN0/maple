@@ -23,7 +23,7 @@ export default function ZoomiesRunPage() {
           <ZoomiesGame />
         </div>
         <p className="text-maple-brown/60 text-sm text-center px-4">
-          Space / ↑ to jump &nbsp;•&nbsp; tap anywhere on mobile
+          Space / ↑ to jump (hold to jump higher) &nbsp;•&nbsp; tap anywhere on mobile
         </p>
       </div>
     </main>

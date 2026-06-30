@@ -7,10 +7,18 @@ const W = 800, H = 300;
 const GROUND = 238;
 const DOG_X = 110;
 const DOG_W = 64, DOG_H = 52;
-const GRAVITY = 0.62;
-const JUMP_V = -14;
+const GRAVITY = 0.62;        // normal gravity: applied on descent, and on ascent once released
+const GRAVITY_HOLD = 0.28;   // reduced gravity while the jump is held (up & down) → floatier, longer jump
+const JUMP_V = -8;           // launch impulse: a tap clears a short gate; only a held jump clears a tall one
+const JUMP_CEIL = 44;        // safety bound for mapleY so a long held jump can't leave the canvas
 const INIT_SPEED = 4.5;
 const MAX_SPEED = 15;
+
+// Obstacles
+const GATE_W = 38;                          // pet gate width
+const GATE_H_SHORT = 40, GATE_H_TALL = 80;  // short gate clears with a tap; tall gate needs a held jump
+const BEE_W = 40, BEE_H = 24;               // bee: an overhead flyer
+const BEE_Y = 128;                          // bee hitbox top — head height: run under it, don't jump into it
 
 // Sprite sheet: 3 frames laid out left→right (run-A, run-B, jump), facing right.
 const SPRITE_SRC = "/maple-sprite.png";
@@ -22,8 +30,8 @@ type FrameRect = { sx: number; sy: number; sw: number; sh: number };
 type Sprite = { src: CanvasImageSource | null; frames: FrameRect[]; scale: number; ready: boolean };
 
 type Phase = "idle" | "playing" | "dead";
-type ObsType = "puddle" | "vacuum" | "cat";
-interface Obs { x: number; type: ObsType; w: number; h: number; }
+type ObsType = "gate" | "bee";
+interface Obs { x: number; y: number; type: ObsType; w: number; h: number; }
 
 // ── draw: background & ground ─────────────────────────────────────────
 function drawBackground(ctx: CanvasRenderingContext2D, scroll: number) {
@@ -205,61 +213,47 @@ function drawMapleSprite(
 }
 
 // ── draw: obstacles ───────────────────────────────────────────────────
-function drawObstacle(ctx: CanvasRenderingContext2D, obs: Obs) {
+function drawObstacle(ctx: CanvasRenderingContext2D, obs: Obs, frame: number) {
   const bx = obs.x;
 
-  if (obs.type === "puddle") {
-    ctx.fillStyle = "#A8D8EA";
-    ctx.beginPath();
-    ctx.ellipse(bx + obs.w / 2, GROUND - 5, obs.w / 2, 11, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#C8EEFA";
-    ctx.beginPath();
-    ctx.ellipse(bx + obs.w / 2 - 10, GROUND - 8, obs.w / 4, 5, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = "#6BB8D0";
-    ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.moveTo(bx + 14, GROUND - 6); ctx.lineTo(bx + 26, GROUND - 6); ctx.stroke();
-
-  } else if (obs.type === "vacuum") {
-    const top = GROUND - obs.h;
-    ctx.fillStyle = "#9E9E9E";
-    ctx.beginPath(); ctx.roundRect(bx, top, obs.w, obs.h - 10, 8); ctx.fill();
-    ctx.fillStyle = "#757575";
-    ctx.beginPath(); ctx.roundRect(bx, top, obs.w, 14, [8, 8, 0, 0]); ctx.fill();
-    ctx.fillStyle = "#F44336";
-    ctx.beginPath(); ctx.ellipse(bx + obs.w / 2, top + 7, 5, 5, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#FF8A80";
-    ctx.beginPath(); ctx.ellipse(bx + obs.w / 2 - 1, top + 6, 2, 2, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#616161";
-    ctx.beginPath(); ctx.roundRect(bx - 6, GROUND - 14, obs.w + 12, 8, 3); ctx.fill();
-    ctx.fillStyle = "#424242";
-    ctx.beginPath(); ctx.ellipse(bx + 10, GROUND - 3, 8, 5, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(bx + obs.w - 10, GROUND - 3, 8, 5, 0, 0, Math.PI * 2); ctx.fill();
+  if (obs.type === "gate") {
+    // Pet gate: a tall wooden panel for Maple to leap over.
+    const top = obs.y;
+    const post = "#7B4A1E", rail = "#9B6B30", bar = "#C49A5A";
+    ctx.fillStyle = rail;
+    ctx.beginPath(); ctx.roundRect(bx, top, obs.w, 8, 3); ctx.fill();             // top rail
+    ctx.beginPath(); ctx.roundRect(bx, GROUND - 12, obs.w, 9, 3); ctx.fill();     // bottom rail
+    ctx.fillStyle = bar;                                                          // vertical bars
+    for (let i = 1; i <= 2; i++) {
+      const vx = bx + (obs.w * i) / 3 - 2;
+      ctx.beginPath(); ctx.roundRect(vx, top + 7, 4, obs.h - 18, 2); ctx.fill();
+    }
+    ctx.fillStyle = post;
+    ctx.beginPath(); ctx.roundRect(bx, top, 7, obs.h, 3); ctx.fill();             // left post
+    ctx.beginPath(); ctx.roundRect(bx + obs.w - 7, top, 7, obs.h, 3); ctx.fill(); // right post
 
   } else {
-    // cat
-    const top = GROUND - obs.h;
-    const cx = bx + obs.w / 2;
-    ctx.fillStyle = "#546E7A";
-    ctx.beginPath(); ctx.ellipse(cx, GROUND - obs.h * 0.44, obs.w * 0.42, obs.h * 0.40, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(cx + obs.w * 0.14, top + 14, 14, 12, 0, 0, Math.PI * 2); ctx.fill();
-    // ears
-    ctx.beginPath(); ctx.moveTo(cx + 4, top + 8); ctx.lineTo(cx + 9, top - 4); ctx.lineTo(cx + 17, top + 8); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(cx + 18, top + 8); ctx.lineTo(cx + 23, top - 4); ctx.lineTo(cx + 29, top + 8); ctx.fill();
-    // tail curl
-    ctx.strokeStyle = "#546E7A"; ctx.lineWidth = 5; ctx.lineCap = "round";
+    // Bee: a striped overhead flyer with fluttering wings, facing left (its
+    // direction of travel, toward Maple).
+    const cx = bx + obs.w / 2, cy = obs.y + obs.h / 2;
+    const flap = (frame >> 2) & 1 ? 5 : 9;
+    ctx.fillStyle = "#FFFFFFCC";                                                  // wings
+    ctx.beginPath(); ctx.ellipse(cx - 3, cy - 8, 7, flap, -0.5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(cx + 7, cy - 8, 7, flap, 0.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#2B2014";                                                    // stinger (trailing, right)
     ctx.beginPath();
-    ctx.moveTo(bx - 2, GROUND - 8);
-    ctx.bezierCurveTo(bx - 20, GROUND - 22, bx - 24, GROUND - 46, bx - 10, GROUND - 50);
-    ctx.stroke();
-    // eyes
-    ctx.fillStyle = "#FFD54F";
-    ctx.beginPath(); ctx.ellipse(cx + 8,  top + 14, 3, 3.5, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(cx + 20, top + 14, 3, 3.5, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#150800";
-    ctx.beginPath(); ctx.ellipse(cx + 8,  top + 14, 1.5, 3, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(cx + 20, top + 14, 1.5, 3, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.moveTo(bx + obs.w - 6, cy);
+    ctx.lineTo(bx + obs.w + 1, cy - 2.5);
+    ctx.lineTo(bx + obs.w + 1, cy + 2.5);
+    ctx.fill();
+    ctx.fillStyle = "#F2B500";                                                    // body
+    ctx.beginPath(); ctx.ellipse(cx, cy, obs.w / 2 - 5, obs.h / 2 - 4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#2B2014";                                                    // stripes
+    for (let i = -1; i <= 1; i++) {
+      ctx.beginPath(); ctx.ellipse(cx + i * 6, cy, 2, obs.h / 2 - 5, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = "#150800";                                                    // eye (head, left)
+    ctx.beginPath(); ctx.ellipse(bx + 7, cy - 2, 2, 2.5, 0, 0, Math.PI * 2); ctx.fill();
   }
 }
 
@@ -284,7 +278,7 @@ function drawIdleOverlay(ctx: CanvasRenderingContext2D) {
   ctx.font = 'bold 22px Nunito, sans-serif';
   ctx.fillText("Tap or Space to start! 🐾", W / 2, H / 2 - 8);
   ctx.font = '15px Nunito, sans-serif'; ctx.fillStyle = "#E8D5BC";
-  ctx.fillText("Space / ↑ to jump  •  one jump only!", W / 2, H / 2 + 18);
+  ctx.fillText("Hold to jump higher  •  don't jump into the bees! 🐝", W / 2, H / 2 + 18);
   ctx.restore();
 }
 
@@ -313,6 +307,7 @@ export default function ZoomiesGame() {
     mapleY: GROUND - DOG_H,
     mapleVY: 0,
     jumpsLeft: 2,
+    holding: false,
     score: 0,
     highScore: 0,
     speed: INIT_SPEED,
@@ -336,6 +331,7 @@ export default function ZoomiesGame() {
       s.mapleY = GROUND - DOG_H;
       s.mapleVY = 0;
       s.jumpsLeft = 2;
+      s.holding = false;
       s.score = 0;
       s.speed = INIT_SPEED;
       s.frame = 0;
@@ -348,7 +344,14 @@ export default function ZoomiesGame() {
     if (s.jumpsLeft > 0) {
       s.mapleVY = JUMP_V;
       s.jumpsLeft = 0;
+      s.holding = true;   // sustain the rise (reduced gravity) for as long as the input is held
     }
+  }, []);
+
+  // Releasing the input ends the "float": gravity returns to normal so Maple
+  // arcs down. A quick tap → normal jump; holding → higher, longer jump.
+  const release = useCallback(() => {
+    g.current.holding = false;
   }, []);
 
   useEffect(() => {
@@ -408,34 +411,76 @@ export default function ZoomiesGame() {
   }, []);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.code === "Space" || e.code === "ArrowUp") { e.preventDefault(); jump(); }
+    const isJumpKey = (e: KeyboardEvent) => e.code === "Space" || e.code === "ArrowUp";
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!isJumpKey(e)) return;
+      e.preventDefault();
+      if (e.repeat) return;   // ignore OS key-repeat: holding = one long jump, not a burst of jumps
+      jump();
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (isJumpKey(e)) release();
     };
     // Tap anywhere to jump (mobile-friendly): a single window-level listener so
     // the whole screen is a jump target, not just the canvas box. Skip taps on
     // links/buttons (e.g. the "Back" nav) so they still work normally.
-    const onPointer = (e: PointerEvent) => {
+    const onPointerDown = (e: PointerEvent) => {
       if ((e.target as HTMLElement | null)?.closest("a, button")) return;
       jump();
     };
-    window.addEventListener("keydown", onKey);
-    window.addEventListener("pointerdown", onPointer);
+    const onPointerUp = () => release();   // lift finger / mouse → end the held jump
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointercancel", onPointerUp);
     return () => {
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("pointerdown", onPointer);
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerUp);
     };
-  }, [jump]);
+  }, [jump, release]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d")!;
 
-    function spawn() {
-      const pool: ObsType[] = ["puddle", "puddle", "vacuum", "cat", "vacuum"];
-      const type = pool[Math.floor(Math.random() * pool.length)];
-      const dims = { puddle: { w: 64, h: 18 }, vacuum: { w: 38, h: 60 }, cat: { w: 46, h: 56 } };
-      g.current.obstacles.push({ x: W + 30, type, ...dims[type] });
+    // Spawn the next hazard. Two kinds, with opposite counters:
+    //  • Pet gate — a tall ground obstacle to leap. A single one needs a normal
+    //    jump; clusters of 2–3 (unlocking with speed) want the floaty held jump
+    //    to clear their width.
+    //  • Bee — an overhead flyer at head height, always solo. The counter is to
+    //    STAY GROUNDED: any real jump clips it.
+    // Returns the extra horizontal span beyond a single obstacle so the cadence
+    // below gives wider clusters proportionally more room before the next spawn.
+    function spawn(): number {
+      const s = g.current;
+
+      // Bees unlock once the pace picks up; keep them solo and occasional.
+      if (s.speed > 6 && Math.random() < 0.3) {
+        s.obstacles.push({ x: W + 30, y: BEE_Y, type: "bee", w: BEE_W, h: BEE_H });
+        return 0;
+      }
+
+      const maxGroup = s.speed > 9 ? 3 : s.speed > 6.5 ? 2 : 1;
+      const r = Math.random();
+      const count = maxGroup >= 3 && r > 0.85 ? 3
+                  : maxGroup >= 2 && r > 0.6  ? 2
+                  : 1;
+
+      // Each cluster is a single height: short gates clear with a quick tap,
+      // tall ones force a held jump. (A cluster of either still wants the hold
+      // for the extra air-time needed to cross its width.)
+      const h = Math.random() < 0.45 ? GATE_H_TALL : GATE_H_SHORT;
+      const GAP = 30; // tight horizontal gap between gates within a cluster
+      const step = GATE_W + GAP;
+      for (let i = 0; i < count; i++) {
+        s.obstacles.push({ x: W + 30 + i * step, y: GROUND - h, type: "gate", w: GATE_W, h });
+      }
+      return (count - 1) * step;
     }
 
     function tick() {
@@ -448,32 +493,42 @@ export default function ZoomiesGame() {
         s.speed = Math.min(MAX_SPEED, INIT_SPEED + s.score * 0.045);
         s.scrollX += s.speed;
 
-        // physics
-        s.mapleVY += GRAVITY;
+        // physics — variable jump: while the input is held, gravity is reduced
+        // for the whole arc (rise & fall) so the jump floats higher and stays up
+        // longer; releasing snaps back to normal gravity so Maple drops on cue.
+        const grav = s.holding ? GRAVITY_HOLD : GRAVITY;
+        s.mapleVY += grav;
         s.mapleY  += s.mapleVY;
+        if (s.mapleY < JUMP_CEIL) {            // bonk the ceiling → stop climbing
+          s.mapleY = JUMP_CEIL;
+          if (s.mapleVY < 0) s.mapleVY = 0;
+        }
         if (s.mapleY >= GROUND - DOG_H) {
           s.mapleY = GROUND - DOG_H;
           s.mapleVY = 0;
           s.jumpsLeft = 2;
+          s.holding = false;                   // landed → next press starts a fresh jump
         }
 
         // obstacle spawn & move
         s.nextIn--;
         if (s.nextIn <= 0) {
-          spawn();
-          s.nextIn = Math.max(50, 125 - s.speed * 5) + Math.random() * 35;
+          const extra = spawn();
+          s.nextIn = Math.max(50, 125 - s.speed * 5) + Math.random() * 35 + extra / s.speed;
         }
         s.obstacles = s.obstacles.filter(o => o.x + o.w > -20);
         for (const o of s.obstacles) o.x -= s.speed;
 
-        // collision (AABB with shrink)
-        const sk = 9;
-        const mL = DOG_X + sk, mR = DOG_X + DOG_W - sk;
-        const mT = s.mapleY + sk, mB = s.mapleY + DOG_H - 4;
+        // collision (AABB with a little shrink for fairness). Each obstacle has
+        // its own vertical band (o.y), so the airborne bee is only hit when
+        // Maple actually jumps up into it — grounded, she runs safely beneath.
+        const DSK = 8, OSK = 5;
+        const mL = DOG_X + DSK, mR = DOG_X + DOG_W - DSK;
+        const mT = s.mapleY + DSK, mB = s.mapleY + DOG_H - 4;
         for (const o of s.obstacles) {
-          const oL = o.x + sk, oR = o.x + o.w - sk;
-          const oT = GROUND - o.h + sk;
-          if (mR > oL && mL < oR && mB > oT && mT < GROUND) {
+          const oL = o.x + OSK, oR = o.x + o.w - OSK;
+          const oT = o.y + OSK, oB = o.y + o.h - OSK;
+          if (mR > oL && mL < oR && mB > oT && mT < oB) {
             s.phase = "dead";
             if (s.score > s.highScore) {
               s.highScore = s.score;
@@ -486,7 +541,7 @@ export default function ZoomiesGame() {
       }
 
       drawBackground(ctx, s.scrollX);
-      for (const o of s.obstacles) drawObstacle(ctx, o);
+      for (const o of s.obstacles) drawObstacle(ctx, o, s.frame);
 
       const spr = spriteRef.current;
       if (spr.ready && spr.src) {
