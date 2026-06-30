@@ -411,8 +411,19 @@ export default function ZoomiesGame() {
     const onKey = (e: KeyboardEvent) => {
       if (e.code === "Space" || e.code === "ArrowUp") { e.preventDefault(); jump(); }
     };
+    // Tap anywhere to jump (mobile-friendly): a single window-level listener so
+    // the whole screen is a jump target, not just the canvas box. Skip taps on
+    // links/buttons (e.g. the "Back" nav) so they still work normally.
+    const onPointer = (e: PointerEvent) => {
+      if ((e.target as HTMLElement | null)?.closest("a, button")) return;
+      jump();
+    };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("pointerdown", onPointer);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("pointerdown", onPointer);
+    };
   }, [jump]);
 
   useEffect(() => {
@@ -501,11 +512,12 @@ export default function ZoomiesGame() {
   }, []);
 
   return (
-    // Wrapper is the tap target: full-width and given generous vertical padding
-    // on mobile so a large, "borderless" area triggers the jump (dino-style),
-    // while the canvas keeps its 8:3 aspect. Desktop hugs the canvas (sm:py-0).
+    // Jumping is handled by a window-level pointerdown listener (see effect
+    // above) so a tap anywhere on the screen jumps — not just inside the canvas.
+    // The wrapper keeps generous mobile padding for layout/breathing room and
+    // touch-action:none to suppress double-tap zoom over the game; desktop hugs
+    // the canvas (sm:py-0).
     <div
-      onPointerDown={(e) => { e.preventDefault(); jump(); }}
       className="w-full flex items-center justify-center cursor-pointer select-none py-12 sm:py-0"
       style={{ touchAction: "none" }}
     >
