@@ -3,11 +3,11 @@ import { FaGamepad, FaInstagram } from "react-icons/fa";
 
 const games = [
   {
-    slug: "zoomies-run",
-    emoji: "💨",
-    title: "Zoomies Run",
+    slug: "bath-dash",
+    emoji: "🛁",
+    title: "Bath Dash",
     description:
-      "Maple got the zoomies! Dodge furniture, puddles, and vacuum cleaners. How far can she run?",
+      "It's bath time, but Maple's not having it! Leap the gates and keep running — every bump slows her down and brings the tub closer.",
     difficulty: "Medium",
   },
   {
@@ -73,7 +73,7 @@ export default function Home() {
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           {games.map((game) => {
-            const isLive = game.slug === "zoomies-run";
+            const isLive = game.slug === "bath-dash";
             const card = (
               <div
                 key={game.slug}

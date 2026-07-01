@@ -1,9 +1,9 @@
 import Link from "next/link";
-import ZoomiesGame from "./ZoomiesGame";
+import BathDashGame from "./BathDashGame";
 
-export const metadata = { title: "Zoomies Run · Maple & Chill" };
+export const metadata = { title: "Bath Dash · Maple & Chill" };
 
-export default function ZoomiesRunPage() {
+export default function BathDashPage() {
   return (
     <main className="flex flex-col min-h-screen">
       <nav className="flex items-center px-6 py-4 border-b border-maple-tan">
@@ -14,17 +14,14 @@ export default function ZoomiesRunPage() {
           ← Back
         </Link>
         <span className="font-display text-2xl text-maple-brown mx-auto pr-10">
-          Zoomies Run 💨
+          Bath Dash 🛁
         </span>
       </nav>
 
-      <div className="flex flex-col items-center sm:px-4 py-8 gap-4 max-w-4xl mx-auto w-full">
+      <div className="flex flex-col items-center sm:px-4 py-8 max-w-4xl mx-auto w-full">
         <div className="w-full bg-maple-tan p-0 sm:rounded-3xl sm:p-3 sm:shadow-md">
-          <ZoomiesGame />
+          <BathDashGame />
         </div>
-        <p className="text-maple-brown/60 text-sm text-center px-4">
-          Space / ↑ to jump (hold to jump higher) &nbsp;•&nbsp; tap anywhere on mobile
-        </p>
       </div>
     </main>
   );
