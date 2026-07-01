@@ -19,8 +19,8 @@ const JUMP_CEIL = 44;        // safety bound for mapleY so a long held jump can'
 // while a stumble lets her close. `lead` is the on-screen gap; hits also cost an
 // instant chunk of it, and when it reaches zero she scoops Maple up.
 const CRUISE_BASE = 5.5;     // starting / target speed at 0 m
-const CRUISE_RAMP = 0.01;    // extra cruise speed gained per metre travelled
-const MAX_SPEED = 13;
+const CRUISE_RAMP = 0.024;   // extra cruise speed gained per metre travelled (tops out ~440 m)
+const MAX_SPEED = 16;
 const INIT_SPEED = CRUISE_BASE;
 const SPEED_REGEN = 0.02;    // per-frame drift back up toward cruise after a stumble
 const SPEED_FLOOR = 1.5;     // a hit can't drop speed below this (world keeps rolling)

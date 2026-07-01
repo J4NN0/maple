@@ -55,7 +55,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${dancingScript.variable} ${nunito.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">
+      {/* suppressHydrationWarning: browser extensions (e.g. Grammarly) inject
+          data-* attributes onto <body> before hydration, which React would
+          otherwise flag as a server/client mismatch. This only silences
+          attribute diffs on <body> itself, not on any of the app's content. */}
+      <body className="min-h-full flex flex-col" suppressHydrationWarning>
         {children}
         <Analytics />
       </body>
