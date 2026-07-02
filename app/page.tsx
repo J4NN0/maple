@@ -11,12 +11,12 @@ const games = [
     difficulty: "Medium",
   },
   {
-    slug: "find-the-ball",
-    emoji: "🎾",
-    title: "Find the Ball",
+    slug: "bubble-trouble",
+    emoji: "🫧",
+    title: "Bubble Trouble",
     description:
-      "Watch the ball get hidden, then find it under shuffling cups. It gets fast — fast.",
-    difficulty: "Hard",
+      "Caught at last! Now Maple's stuck in the tub — dodge the suds, pop the bubbles, and try to stay dry-ish while Vanessa scrubs away.",
+    difficulty: "Medium",
   },
 ];
 
