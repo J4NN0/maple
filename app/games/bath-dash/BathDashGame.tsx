@@ -18,8 +18,8 @@ const JUMP_CEIL = 44;        // safety bound for mapleY so a long held jump can'
 // death). Vanessa runs a fixed margin below cruise, so a clean run pulls away
 // while a stumble lets her close. `lead` is the on-screen gap; hits also cost an
 // instant chunk of it, and when it reaches zero she scoops Maple up.
-const CRUISE_BASE = 5.5;     // starting / target speed at 0 m
-const CRUISE_RAMP = 0.024;   // extra cruise speed gained per metre travelled (tops out ~440 m)
+const CRUISE_BASE = 5.0;     // starting / target speed at 0 m — gentle start, then ramps up fast
+const CRUISE_RAMP = 0.024;   // extra cruise speed gained per metre travelled (tops out ~460 m)
 const MAX_SPEED = 16;
 const INIT_SPEED = CRUISE_BASE;
 const SPEED_REGEN = 0.02;    // per-frame drift back up toward cruise after a stumble
@@ -31,6 +31,8 @@ const LEAD_GAIN = 1.0;       // gap px gained per (speed − chase) per frame
 const HIT_SPEED = 2.8;       // speed lost per obstacle hit
 const HIT_LEAD = 60;         // instant gap Vanessa gains on a stumble — two bumps within ~4.5s catch Maple
 const STUMBLE_FRAMES = 16;   // duration of the red hit-flash
+const GRACE_FRAMES = 36;     // after a stumble, brief window where more clips don't cost — so one
+                             // mistimed jump into a gate *cluster* counts as a single mistake, not 2–3
 
 // Obstacles
 const GATE_W = 38;                          // pet gate width
@@ -382,6 +384,7 @@ export default function BathDashGame() {
     nextIn: 100,
     lead: LEAD_START,   // on-screen gap between Maple and Vanessa
     stumble: 0,         // frames left on the hit-flash
+    invuln: 0,          // frames left in the post-stumble grace window
   });
 
   const jump = useCallback(() => {
@@ -404,6 +407,7 @@ export default function BathDashGame() {
       s.nextIn = 100;
       s.lead = LEAD_START;
       s.stumble = 0;
+      s.invuln = 0;
       return;
     }
     if (s.jumpsLeft > 0) {
@@ -505,10 +509,11 @@ export default function BathDashGame() {
       return (count - 1) * step;
     }
 
-    function tick() {
+    // One fixed simulation step = 1/60 s of game logic. The accumulator loop
+    // below calls it based on real elapsed time, keeping the constants above
+    // frame-rate-agnostic.
+    function step() {
       const s = g.current;
-      ctx.clearRect(0, 0, W, H);
-
       if (s.phase === "playing") {
         s.frame++;
         s.score += s.speed / 60;
@@ -557,10 +562,13 @@ export default function BathDashGame() {
           const oL = o.x + OSK, oR = o.x + o.w - OSK;
           const oT = o.y + OSK, oB = o.y + o.h - OSK;
           if (mR > oL && mL < oR && mB > oT && mT < oB) {
-            o.hit = true;
-            s.speed = Math.max(SPEED_FLOOR, s.speed - HIT_SPEED);
-            s.lead = Math.max(0, s.lead - HIT_LEAD);
-            s.stumble = STUMBLE_FRAMES;
+            o.hit = true;                        // consume the obstacle either way
+            if (s.invuln <= 0) {                 // ...but only the first clip of a stumble costs
+              s.speed = Math.max(SPEED_FLOOR, s.speed - HIT_SPEED);
+              s.lead = Math.max(0, s.lead - HIT_LEAD);
+              s.stumble = STUMBLE_FRAMES;
+              s.invuln = GRACE_FRAMES;
+            }
           }
         }
 
@@ -578,8 +586,13 @@ export default function BathDashGame() {
         }
 
         if (s.stumble > 0) s.stumble--;
+        if (s.invuln > 0) s.invuln--;
       }
+    }
 
+    function draw() {
+      const s = g.current;
+      ctx.clearRect(0, 0, W, H);
       drawBackground(ctx, s.scrollX);
       for (const o of s.obstacles) drawObstacle(ctx, o, s.frame);
 
@@ -619,11 +632,27 @@ export default function BathDashGame() {
       drawHUD(ctx, s.score, s.highScore);
       if (s.phase === "idle") drawIdleOverlay(ctx);
       if (s.phase === "caught") drawCaughtOverlay(ctx, s.score, s.highScore);
-
-      rafRef.current = requestAnimationFrame(tick);
     }
 
-    rafRef.current = requestAnimationFrame(tick);
+    // Fixed-timestep loop: advance the simulation in 1/60 s steps based on REAL
+    // elapsed time, so the game runs at the same speed on 60/90/120 Hz displays
+    // (common on phones) instead of tracking the refresh rate. Rendering still
+    // happens once per animation frame. `dt` is clamped so a backgrounded tab
+    // doesn't fast-forward a huge backlog of steps when it returns.
+    const STEP_MS = 1000 / 60;
+    let last = 0;
+    let acc = 0;
+    function frame(now: number) {
+      // Clamp dt so the very first frame (last=0) and any tab-background gap
+      // advance at most ~6 steps rather than a huge backlog. The game is idle
+      // on the first frame anyway, so those steps are no-ops.
+      acc += Math.min(now - last, 100);
+      last = now;
+      while (acc >= STEP_MS) { step(); acc -= STEP_MS; }
+      draw();
+      rafRef.current = requestAnimationFrame(frame);
+    }
+    rafRef.current = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(rafRef.current);
   }, []);
 
